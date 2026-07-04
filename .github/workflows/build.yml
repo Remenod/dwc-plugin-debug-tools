@@ -1,0 +1,61 @@
+name: Build plugin
+
+# Packages the Vision Miner Debug Tools DWC plugin with the same build.sh used
+# locally (which builds against a pinned DuetWebControl checkout) and publishes
+# the resulting .zip as a GitHub release on every push.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out plugin (this push)
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Read plugin.json version
+        id: plugin
+        run: echo "version=$(node -p "require('./plugin.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache DuetWebControl build checkout
+        uses: actions/cache@v4
+        with:
+          path: .dwc-build
+          key: dwc-build-${{ hashFiles('plugin.json', 'build.sh') }}
+          restore-keys: |
+            dwc-build-
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Locate plugin artifact
+        id: artifact
+        run: |
+          zip="$(ls -t dist/*.zip 2>/dev/null | head -1)"
+          [ -n "$zip" ] || { echo "No .zip produced"; exit 1; }
+          echo "path=$zip" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.plugin.outputs.version }}-${{ steps.artifact.outputs.sha_short }}
+          name: Debug Tools v${{ steps.plugin.outputs.version }} (${{ steps.artifact.outputs.sha_short }})
+          target_commitish: ${{ github.sha }}
+          files: ${{ steps.artifact.outputs.path }}
