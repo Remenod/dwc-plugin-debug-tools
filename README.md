@@ -31,13 +31,23 @@ Targets DWC `3.5.4` (see `plugin.json`).
 
 ## Building
 
-This plugin has no build of its own — it's built as part of a
-[DuetWebControl](https://github.com/Duet3D/DuetWebControl) checkout:
+Run `build.sh`:
 
 ```sh
-cd DuetWebControl
-npm run build-plugin -- /path/to/dwc-plugin-debug-tools
+./build.sh
 ```
 
-This produces `dist/dwc-plugin-debug-tools-<version>.zip`, which can be
-installed from DWC's Plugins page (System → Plugins → Install plugin).
+DWC plugins are compiled inside a [DuetWebControl](https://github.com/Duet3D/DuetWebControl)
+checkout and share that checkout's webpack module registry at runtime, so the
+plugin **must** be built against the *same* DWC version that runs on the printer
+(**3.5.4**). `build.sh` handles this: it maintains its own throwaway DWC 3.5.4
+checkout under `.dwc-build/` (leaving any DWC tree you develop in untouched),
+builds the plugin there, and copies the packaged zip into `dist/`. The first run
+clones DWC and installs its dependencies (a few minutes); later runs are quick.
+
+The result is `dist/dwc-plugin-debug-tools-<version>.zip`, which can be installed
+from DWC's Plugins page (System → Plugins → Install plugin).
+
+To build against a different DWC version (e.g. after the printer is upgraded),
+override the tag: `DWC_VERSION=v3.6.3 ./build.sh`. Use `./build.sh clean` to
+discard the cached checkout.

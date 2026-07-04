@@ -269,7 +269,12 @@ export default {
       const extras = []
       let off = false
 
-      for (const token of this.tokenize(raw)) {
+      // Indexed loop (not for...of) on purpose: DWC 3.5.x's core-js does not
+      // ship the iterator-helper polyfills that a for...of would pull in, and a
+      // missing polyfill module aborts plugin start-up on that runtime.
+      const tokens = this.tokenize(raw)
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i]
         switch (token) {
           case 'off':
             off = true
@@ -311,10 +316,17 @@ export default {
       if (raw === null || raw === undefined) {
         return []
       }
-      return String(raw)
-        .toLowerCase()
-        .split(/[|:+,;\s]+/)
-        .filter(Boolean)
+      // Build the token list with a plain loop rather than .filter(): under DWC
+      // 3.5.x's core-js, .filter() pulls the es.iterator.* helper polyfills,
+      // which are absent on that host and abort plugin start-up.
+      const parts = String(raw).toLowerCase().split(/[|:+,;\s]+/)
+      const tokens = []
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i]) {
+          tokens.push(parts[i])
+        }
+      }
+      return tokens
     },
 
     async runGCode(gcode) {
